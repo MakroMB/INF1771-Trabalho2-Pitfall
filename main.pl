@@ -5,8 +5,19 @@
 :-dynamic certeza/2.
 :-dynamic energia/1.
 :-dynamic pontuacao/1.
+:-dynamic ouros/1.
+:-dynamic saiu/0.
+:-dynamic mapa_atual/1.
+:-dynamic percepcao/3.
 
 :-consult('mapa.pl').
+mapa_atual('mapa.pl').
+
+%troca o mapa carregado (ex.: carrega_mapa('mapa_dificil.pl')) e reinicia o jogo
+%tambem serve para recomecar o mesmo mapa, ja que pegar o ouro altera o tile
+carrega_mapa(Arquivo) :- mapa_atual(Antigo), retract(mapa_atual(Antigo)),
+					retractall(tile(_,_,_)), unload_file(Antigo),
+					consult(Arquivo), assert(mapa_atual(Arquivo)), reset_game.
 
 delete([], _, []).
 delete([Elem|Tail], Del, Result) :-
@@ -24,8 +35,12 @@ reset_game :- retractall(memory(_,_,_)),
 			retractall(energia(_)),
 			retractall(pontuacao(_)),
 			retractall(posicao(_,_,_)),
+			retractall(ouros(_)),
+			retractall(saiu),
+			retractall(percepcao(_,_,_)),
 			assert(energia(100)),
 			assert(pontuacao(0)),
+			assert(ouros(0)),
 			assert(posicao(1,1, norte)).
 
 
@@ -50,9 +65,10 @@ atualiza_energia(N):- energia(E), retract(energia(E)), NE is E + N,
 verifica_player :- posicao(X,Y,_), tile(X,Y,'P'), atualiza_energia(-100), atualiza_pontuacao(-1000),!.
 verifica_player :- posicao(X,Y,_), tile(X,Y,'D'), random_between(-80,-50,D), atualiza_energia(D),!.
 verifica_player :- posicao(X,Y,_), tile(X,Y,'d'), random_between(-50,-25,D), atualiza_energia(D),!.
-verifica_player :- posicao(X,Y,Z), tile(X,Y,'T'), 
+%teletransporte: set_real faz o agente perceber a casa onde acorda, igual a quando anda
+verifica_player :- posicao(X,Y,Z), tile(X,Y,'T'),
 					map_size(SX,SY), random_between(1,SX,NX), random_between(1,SY,NY),
-				retract(posicao(X,Y,Z)), assert(posicao(NX,NY,Z)), atualiza_obs, verifica_player,!.
+				retract(posicao(X,Y,Z)), assert(posicao(NX,NY,Z)), set_real(NX,NY), atualiza_obs, verifica_player,!.
 verifica_player :- true.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -97,9 +113,13 @@ andar :- posicao(X,Y,P), P = oeste,  X > 1, XX is X - 1,
 		 ((retract(visitado(X,Y)), assert(visitado(X,Y))); assert(visitado(X,Y))),atualiza_pontuacao(-1),!.
 		 
 %pegar	
-pegar :- posicao(X,Y,_), tile(X,Y,'O'), retract(tile(X,Y,'O')), assert(tile(X,Y,'')), atualiza_pontuacao(-5), atualiza_pontuacao(500),set_real(X,Y),!. 
+pegar :- posicao(X,Y,_), tile(X,Y,'O'), retract(tile(X,Y,'O')), assert(tile(X,Y,'')), atualiza_pontuacao(-5), atualiza_pontuacao(500),set_real(X,Y),
+		 ouros(N), retract(ouros(N)), NN is N + 1, assert(ouros(NN)),!.
 pegar :- posicao(X,Y,_), tile(X,Y,'U'), retract(tile(X,Y,'U')), assert(tile(X,Y,'')), atualiza_pontuacao(-5), atualiza_energia(50),set_real(X,Y),!. 
 pegar :- atualiza_pontuacao(-5),!.
+
+%sair da caverna: condicao de vitoria, so vale na origem [1,1]
+sair :- posicao(1,1,_), \+ saiu, assert(saiu),!.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %% Funcoes Auxiliares de navegação e observação
@@ -129,7 +149,12 @@ observacao_adj(passos,L) :- member('d',L).
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
 %consulta e processa observações
-atualiza_obs:-adj_cand_obs(LP), observacoes(LO), iter_pos_list(LP,LO), observacao_certeza, observacao_vazia.
+%observacao_certeza saiu daqui: ela ignorava vizinhas com memoria tipo [brisa,passos] e podia
+%marcar um poco falso. A regra deduz_perigos do agente (agente.pl) faz essa deducao corretamente.
+atualiza_obs:-adj_cand_obs(LP), observacoes(LO), guarda_percepcao(LO), iter_pos_list(LP,LO), observacao_vazia.
+
+%guarda o que o agente sentiu em cada casa (TELL da percepcao na base, Aula 07.1)
+guarda_percepcao(LO) :- posicao(X,Y,_), retractall(percepcao(X,Y,_)), assert(percepcao(X,Y,LO)).
 
 %adjacencias candidatas p/ a observacao (aquelas não visitadas)
 adj_cand_obs(L) :- findall((X,Y), (adjacente(X, Y), \+visitado(X,Y)), L).
@@ -241,15 +266,10 @@ show_mem(_,0) :- energia(E), pontuacao(P), write('E: '), write(E), write('   P: 
 
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+%% Agente: executa_acao/1 (antes aleatoria) agora fica em agente.pl
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-%apagar esta linha - apenas para demonstracao aleatoria
-executa_acao(X) :- L=['virar_esquerda','virar_direita','andar','pegar'],random_between(1,4,I), nth1(I, L, X),!.
-
-%apagar linhas abaixo... sao exemplos de resposta
-%executa_acao(andar) :- posicao(PX, _, oeste), PX > 1, X = andar,!.
-%executa_acao(andar) :- posicao(PX, _, leste), PX < 3, X = andar,!.
-%executa_acao(pegar) :- posicao(PX, PY,_), tem_ouro(PX, PY), !.
-%executa_acao(voltar) :- peguei_todos_ouros,!.
+:-consult('agente.pl').
 
 
 
