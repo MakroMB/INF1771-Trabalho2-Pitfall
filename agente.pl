@@ -115,10 +115,10 @@ aceita_risco(passos).
 %chance maxima aceita para um perigo que nao esta na lista acima
 limite_chance(0.2).
 
-%inimigo so com energia para aguentar o maior dano (80)
-risco_aceito(_,_,passos) :- aceita_risco(passos), energia(E), E > 80, !.
-risco_aceito(_,_,Z) :- Z \= passos, aceita_risco(Z), !.
-risco_aceito(X,Y,Z) :- chance(X,Y,Z,P), limite_chance(L), P < L.
+%inimigo so com energia para aguentar o maior dano (80), mesmo com chance baixa
+risco_aceito(X,Y,Z) :-
+    (Z == passos -> energia(E), E > 80 ; true),
+    (aceita_risco(Z) -> true ; chance(X,Y,Z,P), limite_chance(L), P < L).
 
 %casa arriscada aceitavel: todo perigo que pode ter nela e aceitavel
 arriscavel(X,Y) :- incerta(X,Y,M), \+ (member(Z,M), \+ risco_aceito(X,Y,Z)).
