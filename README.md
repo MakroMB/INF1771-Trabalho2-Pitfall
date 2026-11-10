@@ -34,7 +34,7 @@ sorteados, por isso cada mapa fornecido rodou 30 vezes, com sementes de 0 a 29.
 | `mapa_facil.pl` | 30 | **1234** | 3 | 30/30 | 30/30 | 255 |
 | `mapa_medio.pl` | 30 | **1130** | 3 | 30/30 | 30/30 | 359 |
 | `mapa_dificil.pl` | 30 | **1151** | 3 | 30/30 | 30/30 | 338 |
-| 200 mapas aleatórios | 200 | 936,4 (média) | 2,33 (média) | 190/200 | 148/200 | 180,1 (média) |
+| 200 mapas aleatórios | 200 | 937,0 (média) | 2,33 (média) | 190/200 | 148/200 | 179,5 (média) |
 
 Nos mapas fornecidos o agente nunca entra num teletransporte nem leva dano, então todas as 30 partidas
 de cada mapa saem iguais. Os **mapas aleatórios** têm os mesmos elementos do enunciado (2 d, 2 D, 8 poços,
@@ -146,6 +146,10 @@ Também podem ser trocados pela linha de comando do `rodar_testes.py`.
 
 ## Experimentos
 
+As tabelas de comparação abaixo registram os experimentos anteriores à correção do limite de energia
+descrita no item 7 da evolução. Os resultados atuais da política escolhida estão na seção "Resultados"
+e em `resultados/`.
+
 ### Qual risco aceitar
 
 O mesmo agente rodou com políticas de risco diferentes, sempre com limite de chance de poço de 20%. Foram
@@ -194,6 +198,13 @@ Com 0,05 o mapa médio não é resolvido; de 0,1 a 0,3 a diferença é pequena. 
    - percepções repetidas deixaram de contar duas vezes.
 
    Sobrevivência nos aleatórios: 187 → 190; média: 931,6 → 936,4.
+
+7. **Limite de energia em toda aceitação de risco de inimigo.** A alternativa de chance baixa podia
+   aceitar `passos` com energia ≤ 80 quando a primeira regra falhava. A condição de energia agora vem
+   antes da escolha entre risco aceito e chance baixa. Quatro novos testes cobrem o limite de energia,
+   a alternativa de chance baixa e a preservação do risco de teletransporte. Nas mesmas 290 partidas,
+   os mapas fornecidos mantiveram os resultados; a média nos aleatórios passou de 936,4 para 937,0,
+   com 190/200 sobreviventes e 148/200 saídas com três ouros.
 
 ## Mudanças no código-base do professor
 

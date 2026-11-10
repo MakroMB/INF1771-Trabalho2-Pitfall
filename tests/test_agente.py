@@ -29,6 +29,14 @@ def cenario(*fatos, posicao="posicao(1,1,norte)"):
         consulta(f"assert({fato})")
 
 
+def cenario_com_risco(energia, perigo="passos"):
+    # O perigo conhecido ao norte explica a percepção; a casa a leste continua incerta.
+    cenario("memory(1,1,[])", "certeza(1,1)",
+            f"memory(1,2,[{perigo}])", "certeza(1,2)",
+            f"memory(2,1,[{perigo}])", f"percepcao(1,1,[{perigo}])")
+    consulta(f"retract(energia(_)), assert(energia({energia}))")
+
+
 class AgenteTests(unittest.TestCase):
     def test_agente_nao_consulta_o_mapa_real(self):
         codigo = "\n".join(linha.split("%")[0] for linha in (RAIZ / "agente.pl").read_text(encoding="utf-8").splitlines())
@@ -44,6 +52,39 @@ class AgenteTests(unittest.TestCase):
         self.assertNotEqual(acao(), "pegar")
         consulta("retract(energia(_)), assert(energia(60))")
         self.assertEqual(acao(), "pegar")
+
+    def test_nao_arrisca_inimigo_com_energia_ate_80(self):
+        for energia in (1, 40, 80):
+            with self.subTest(energia=energia):
+                cenario_com_risco(energia)
+                chance = consulta("chance(2,1,passos,P)")[0]["P"]
+                self.assertLess(chance, 0.2)
+                self.assertFalse(consulta("arriscavel(2,1)"))
+                self.assertEqual(acao(), "sair")
+
+    def test_arrisca_inimigo_com_energia_acima_de_80(self):
+        for energia in (81, 100):
+            with self.subTest(energia=energia):
+                cenario_com_risco(energia)
+                self.assertTrue(consulta("arriscavel(2,1)"))
+                self.assertEqual(acao(), "virar_direita")
+                consulta("virar_direita")
+                self.assertEqual(acao(), "andar")
+
+    def test_chance_baixa_de_inimigo_tambem_exige_energia(self):
+        consulta("retractall(aceita_risco(passos))")
+        try:
+            for energia, esperada in ((40, "sair"), (80, "sair"), (81, "virar_direita")):
+                with self.subTest(energia=energia):
+                    cenario_com_risco(energia)
+                    self.assertEqual(acao(), esperada)
+        finally:
+            consulta("assert(aceita_risco(passos))")
+
+    def test_energia_baixa_nao_bloqueia_teletransporte(self):
+        cenario_com_risco(40, "palmas")
+        self.assertTrue(consulta("arriscavel(2,1)"))
+        self.assertEqual(acao(), "virar_direita")
 
     def test_regra_de_diagnostico_confirma_poco(self):
         # Em [2,1] sentiu brisa; [1,1] e [2,2] são seguras, então o poço só pode estar em [3,1].
